@@ -2,6 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask import Flask, render_template, request, jsonify
 from datetime import datetime, date, time
 from flask_login import LoginManager, UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///translations.db'
@@ -25,6 +26,10 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
+
+    def set_password(self, password):
+        self.password = generate_password_hash(password)
+
 
 # Exécutez db.create_all() pour créer les tables dans la base de données
 db.create_all()

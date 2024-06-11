@@ -12,27 +12,30 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_oauthlib.client import OAuth
 from flask_mail import Mail, Message
+from dotenv import load_dotenv
 import os
 import uuid
-from itsdangerous import URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer, URLSafeSerializer, SignatureExpired
+
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///translations.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
-# app.secret_key = secrets.token_hex(16)  # Utilisez la clé générée ici
-app.secret_key = '3494118c38f157b365844553f6ea1d78'
+app.secret_key = os.getenv('SECRET_KEY')
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=0.24)
 
 # Configuration de Flask-Mail
-app.config['MAIL_SERVER'] = 'smtp-shopraphia.alwaysdata.net'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USERNAME'] = 'shopraphia@alwaysdata.net'
-app.config['MAIL_PASSWORD'] = '@laptop12'
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
+app.config['MAIL_PORT'] = os.getenv('MAIL_PORT')
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
 
 mail = Mail(app)
 serializer = URLSafeTimedSerializer(app.secret_key)
+# serializer = URLSafeSerializer(app.secret_key)
 
 oauth = OAuth(app)
 # 
@@ -43,8 +46,8 @@ login_manager.login_view = 'login'
 
 google = oauth.remote_app(
     'google',
-    consumer_key='17857114237-hpk5opqe9saff15bj6ofdkev9n3d8qi7.apps.googleusercontent.com',
-    consumer_secret='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',
+    consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
+    consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
     request_token_params={
         'scope': 'email',
     },
@@ -57,8 +60,8 @@ google = oauth.remote_app(
 
 facebook = oauth.remote_app(
     'facebook',
-    consumer_key='451656697480861',
-    consumer_secret='b3a6cfb75e697e4fb40206e437812985',
+    consumer_key=os.getenv('FACEBOOK_APP_ID'),
+    consumer_secret=os.getenv('FACEBOOK_APP_SECRET'),
     request_token_params={'scope': 'email'},
     base_url='https://graph.facebook.com/',
     request_token_url=None,
@@ -98,44 +101,62 @@ def homeSpecific(key):
     if username:
         return render_template('specific.html', formLogin = form, formRegister = formRegister, FK_b05SbbY=username, KEY = key)
     else : 
-        return render_template('specific.html', formLogin = form, formRegister = formRegister, FK_b05SbbY=False, KEY = key)
+        return render_template('index.html', formLogin = form, formRegister = formRegister, FK_b05SbbY=False, KEY = key)
 
-# @app.route('/reset-password-request',  endpoint='request_password')
-# def templinitPassword():
-#     form = LoginForm()
-#     formRegister = RegisterForm()
+@app.route('/reset-password/<token>',  endpoint='forgot_password', methods=['GET'])
+def forgot_password(token):
+    success=request.args.get('success')
+    message=request.args.get('message')
+    # token=request.args.get('token')
 
-#     username = session.get('username')
+    return render_template('set-password.html', success=success, message=message, token=token)
 
-#     return render_template('set-password.html')
-
-@app.route('/reset-password',  endpoint='reset_password')
+@app.route('/reset-password/<token>',  endpoint='reset_password',  methods=['POST'])
 # @login_required
-def initPassword():
+def reset_password(token):
 
-    token = request.args.get('token')
-    email = ""
+    global success
+    global message
+    global email
+
     try:
         email = serializer.loads(token, salt='password-reset-salt', max_age=3600)
-    except:
-        return jsonify({'success': False, 'message': 'The password reset link is invalid or has expired.'}), 400
-    
-    if request.method == 'POST':
-        data = request.get_json()
-        new_password = data.get('password')
-        confirm_password = data.get('confirm_password')
-        if new_password == confirm_password:
+        # print(email)
 
-            # Vous devez ajouter la logique pour mettre à jour le mot de passe de l'utilisateur ici.
-            user = User.query.filter_by(email=email).first()
-            user.set_password(new_password)
-            db.session.commit()
-            return jsonify({'success': True, 'message': 'Votre mot de passe été initialié.'})
+    except Exception as e:
+        # flash('Le lien de réinitialisation est invalide ou a expiré.', 'danger')
+        print(e)
+        message ="Le lien de réinitialisation est invalide ou a expiré."
+        success = False
+        # return render_template('set-password.html', message=message, success=success)
+        return redirect(url_for('forgot_password', token=token, success=success, message=message))
+
+    # print(email)
+
+    if request.method == 'POST':
+        # print(token)
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        if not password or not confirm_password:
+            message = "Tous les champs sont obligatoires."
+            success = False
+        elif password != confirm_password:
+            message = "Les mots de passe ne correspondent pas."
+            success = False
         else:
-            return jsonify({'success': False, 'message': 'Mot de passe different!'})
-    
-    return render_template('set-password.html')
-    
+            # Logique pour changer le mot de passe ici
+            user = User.query.filter_by(email=email).first()
+            hashPwd = generate_password_hash(password, method='sha256')
+            # user.set_password(hashPwd)
+            # Exécution d'une requête SQL pour mettre à jour l'email de l'utilisateur
+            update_query = f"UPDATE user SET password = :password WHERE id = :id"
+            db.session.execute(update_query, {'password': hashPwd, 'id': user.id})
+            # db.session.add(user)
+            db.session.commit()
+            message = "Le mot de passe a été réinitialisé avec succès."
+            success = True
+        return redirect(url_for('forgot_password', token=token, success=success, message=message))
+    return redirect(url_for('forgot_password', token=token, success=False, message=""))
 
 # Route pour la traduction
 @app.route('/translate', methods=['POST'])
@@ -226,6 +247,7 @@ def login():
         if user and check_password_hash(user.password, form.password.data):
             login_user(user)
             session['username'] = user.username
+            session['email'] = user.email
 
             return redirect(url_for('home'))
         else : 
@@ -250,6 +272,7 @@ def register():
             db.session.add(new_user)
             db.session.commit()
             session['username'] = new_user.username
+            session['email'] = new_user.email
             return redirect(url_for('home'))
            
         else : 
@@ -275,6 +298,7 @@ def authorizedGoogle():
     session['google_token'] = (resp['access_token'], '')
     user_info = google.get('userinfo')
     session['username'] = user_info.data['name']
+    session['email'] = user_info.data['email']
 
     # Traitez les informations de l'utilisateur comme bon vous semble
     return 'Vous êtes connecté en tant que: ' + user_info.data['email']
@@ -295,6 +319,7 @@ def authorizedFb():
     session['facebook_token'] = (resp['access_token'], '')
     me = facebook.get('/me')
     session['username'] = me.data['name']
+    session['email'] = me.data['id']
     return 'Logged in as {}! <a href="/logout">Logout</a>'.format(me.data['name'])
 
 
@@ -305,7 +330,20 @@ def logout():
 
     logout_user()
     session["username"] = False
+    session["email"] = False
     return redirect(url_for('home'))
+
+@app.route('/profil')
+def profil():
+
+    # all_users = User.query.all()
+    username = session.get('username')
+    email = session.get('email')
+    # user = User.query.filter_by(username=username).first()
+    # history_json = [{'id': item.id,'username': item.username, 'email': item.email, 'password': item.password} for item in user]
+    # print(history_json)
+    return jsonify({'username': username, 'email': email})
+
 
 @app.route('/all-users')
 def getAllUser():
@@ -338,7 +376,7 @@ def send_reset_email():
     token = serializer.dumps(email, salt='password-reset-salt')
     link = url_for('reset_password', token=token, _external=True)
     
-    msg = Message('Réinitialisation du mot de passe', sender='shopraphia@alwaysdata.net', recipients=[email])
+    msg = Message('Réinitialisation du mot de passe', sender=str(os.getenv("MAIL_DEFAULT_SENDER")), recipients=[email])
     msg.body = f'Cliquez sur le lien pour réinitialiser votre mot de passe {link}'
     mail.send(msg)
 

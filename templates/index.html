@@ -18,6 +18,7 @@
     <!-- Popper.js (nécessaire pour Bootstrap 4) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/typed.js"></script>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
@@ -120,7 +121,7 @@
                                 <span class="online_icon"></span>
                             </div>
                             <a class="user_info" href="/">
-                                <span>Chat with AI Translation</span>
+                                <span>Chat avec AI Translation</span>
                                 <p id="nb_disc"></p>
                             </a>
                             <div class="video_cam">
@@ -131,7 +132,7 @@
                         <span id="action_menu_btn"><i class="fas fa-ellipsis-v"></i></span>
                         <div class="action_menu">
                             <ul>
-                                <li><i class="fas fa-user-circle"></i> Voir votre profil</li>
+                                <li data-toggle="modal" data-target="#profilModal" onclick="showProfil()"><i class="fas fa-user-circle"></i> Voir votre profil</li>
                                 <!-- <li><i class="fas fa-users"></i> Add to close friends</li>
                                 <li><i class="fas fa-plus"></i> Add to group</li> -->
                                 <li> <a href="/logout"><i class="fas fa-ban"></i> Se déconnecter</li></a>
@@ -216,7 +217,7 @@
                                 <span class="input-group-text attach_btn"><i class="fas fa-paperclip"></i></span>
                             </div>
                             <textarea name="" class="form-control type_msg" id="text-to-translate"
-                                placeholder="Type your message..."></textarea>
+                                placeholder="Ecrire votre message..."></textarea>
                             <div class="input-group-append" onclick="translateText()">
                                 <span class="input-group-text send_btn"><i class="fas fa-location-arrow"></i></span>
                             </div>
@@ -408,6 +409,8 @@
             </div>
         </div>
     </div>
+
+    {% include 'modal.html' %}
 
 </body>
 

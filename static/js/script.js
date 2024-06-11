@@ -38,7 +38,7 @@ const queryString = window.location.href;
 let parts = queryString.split('/')
 let key = parts[parts.length - 1]
 
-console.log(key);
+// console.log(key);
 
 if(key){
     key = getDateFromHexa(key);
@@ -152,6 +152,8 @@ async function translateText() {
         </div>
     `
 
+    
+
     document.querySelector("#discussion")?document.querySelector("#discussion").innerHTML +=res :""
     document.querySelector("#discussion_specific")? document.querySelector("#discussion_specific").innerHTML +=res :""
 
@@ -231,9 +233,11 @@ function getDateFromHexa(dateInput) {
     return dateInput.replaceAll("-e07712edd737","").replaceAll(/\D/g,"")
 }
 
-document.querySelector(".toggle-password").addEventListener("click",function(e){
-    console.log(e.previousElementSibling);
-})
+if(document.querySelector(".toggle-password")){
+    document.querySelector(".toggle-password").addEventListener("click",function(e){
+        console.log(e.previousElementSibling);
+    })
+}
 
 function sendMailForgot(){
     let email = document.querySelector("#email-forgot").value;
@@ -255,4 +259,14 @@ function sendMailForgot(){
     .catch(error => {
         console.error('Error:', error);
     });
+}
+
+function showProfil(){
+    fetch("/profil")
+    .then(r=>r.json())
+    .then(data=>{
+        document.querySelector("#name_profil").textContent = data.username
+        document.querySelector("#email_profil").textContent = data.email
+        console.log(data);
+    })
 }
