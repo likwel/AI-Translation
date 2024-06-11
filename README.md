@@ -1,0 +1,1 @@
+![alt text](https://github.com/likwel/AI-Translation/blob/main/screen.png)
